@@ -62,5 +62,23 @@ class Grid:
                 container[x, y] = node.height
         return container
 
+    def calc_path_cost(self, path) -> float:
+        cost = 0.0
+        for i in range(len(path) - 1):
+            pos1 = path[i]
+            pos2 = path[i + 1]
+            node1 = self.nodes[pos1]
+            node2 = self.nodes[pos2]
+            cost += self.edges[(node1, node2)].cost
+        return cost
+
+    def path_to_np(self, path) -> np.array:
+        arr = np.empty((3, len(path)))
+        for i, pos in enumerate(path):
+            x, y = pos
+            z = self.nodes[pos].height
+            arr[:, i] = [x, y, z]
+        return arr
+
     def __str__(self):
         return f"{self.size}x{self.size} Grid:\n {self.to_np()}"

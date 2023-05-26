@@ -18,7 +18,7 @@ class DStarLite:
     Implemented using pseudocode as found in: http://idm-lab.org/bib/abstracts/papers/aaai02b.pdf
     """
     def __init__(self, known_map: np.array, true_map: np.array,
-                 update_mode: int = 1, scan_radius: int = 1, err_threshold: float = math.inf):
+                 update_step: int = 1, scan_radius: int = 1, err_threshold: float = math.inf):
         self.known_map = known_map
         self.true_map = true_map
         self.known_grid = Grid(known_map)
@@ -28,7 +28,7 @@ class DStarLite:
         self.path = []
         self.start = None
         self.goal = None
-        self.update_mode = update_mode  # how many steps taken before updating path, 0 means not updated based on step
+        self.update_step = update_step  # how many steps taken before updating path, 0 means not updated based on step
         self.scan_radius = scan_radius  # how many nodes around current node should be updated from true map
         self.err_thr = err_threshold  # how much difference between updated terrain and terrain pathed on before update
 
@@ -101,6 +101,7 @@ class DStarLite:
                             changed_edges[edge] = edge.cost
                         edge.update_cost()
 
+        # Calculate MSE
         total_diff = 0.0
         for edge, c_old in changed_edges.items():
             total_diff += (edge.cost - c_old) ** 2
@@ -138,9 +139,10 @@ class DStarLite:
             changed_edges.update(new_changed_edges)
 
             total_error += new_error
-            enough_err = self.update_mode == 0 and total_error > self.err_thr
-            update_time = self.update_mode != 0 and steps % self.update_mode == 0
+            enough_err = total_error > self.err_thr
+            update_time = self.update_step > 0 and steps % self.update_step == 0
             if enough_err or update_time:
+                total_error = 0.0
                 self.km += heuristic(last, self.start)
                 last = self.start
                 for edge, c_old in changed_edges.items():
@@ -171,6 +173,7 @@ class DStarLite:
                     self.update_vertex(v)
 
                 self.compute_shortest_path()
+            steps += 1
         self.path = path
         return
 
