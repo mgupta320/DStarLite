@@ -110,7 +110,7 @@ class AStarUpdate:
         self.err_thr = err_threshold  # how much difference between updated terrain and terrain pathed on before update
 
     def scan_terrain(self) -> (dict, float):
-        diff_range = [diff for diff in range(-self.scan_radius, self.scan_radius+1)]
+        diff_range = [diff for diff in range(-1*self.scan_radius, self.scan_radius+1)]
         x, y = self.start.pos
 
         changed_edges = {}
@@ -143,8 +143,8 @@ class AStarUpdate:
         self.scan_terrain()
         path = []
         latest_planner = AStar(self.known_map)
+        latest_planner.grid = self.known_grid
         latest_plan = latest_planner.get_path(self.start.pos, self.goal.pos)
-
         total_error = 0.0
         steps = 0
         while self.start != self.goal:
@@ -158,13 +158,13 @@ class AStarUpdate:
 
             if self.start != self.goal:
                 _, new_error = self.scan_terrain()
+
                 total_error += new_error
                 enough_err = total_error > self.err_thr
                 update_time = self.update_step > 0 and steps % self.update_step == 0
                 if enough_err or update_time:
-                    total_error = 0.0
-                    latest_planner = AStar(self.known_grid.to_np())
                     latest_plan = latest_planner.get_path(self.start.pos, self.goal.pos)
+                    total_error = 0.0
             steps += 1
         self.path = path
         return

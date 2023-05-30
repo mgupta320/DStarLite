@@ -43,7 +43,7 @@ class DStarLite:
             node.rhs = math.inf
             node.g = math.inf
         self.goal.rhs = 0
-        self.U[self.goal] = self.calc_key(self.goal)
+        self.U[self.goal] = (heuristic(self.start, self.goal), 0)
 
     def update_vertex(self, node: Node):
         if node.g != node.rhs:
@@ -55,7 +55,6 @@ class DStarLite:
         while self.U.peekitem()[1] < self.calc_key(self.start) or self.start.rhs > self.start.g:
             u, k_old = self.U.peekitem()
             k_new = self.calc_key(u)
-
             if k_old < k_new:
                 self.U[u] = k_new
             elif u.g > u.rhs:
@@ -79,6 +78,14 @@ class DStarLite:
                                 min_s_prime = min(min_s_prime, c_prime.cost + s_prime.g)
                             s.rhs = min_s_prime
                     self.update_vertex(s)
+                if u.rhs == g_old:
+                    if u != self.goal:
+                        min_s_prime = math.inf
+                        for s_prime_pos, c_prime in u.edges.items():
+                            s_prime = self.known_grid.nodes[s_prime_pos]
+                            min_s_prime = min(min_s_prime, c_prime.cost + s_prime.g)
+                        u.rhs = min_s_prime
+                self.update_vertex(u)
 
     def scan_terrain(self) -> (dict, float):
         diff_range = [diff for diff in range(-self.scan_radius, self.scan_radius+1)]
@@ -113,16 +120,18 @@ class DStarLite:
         self.scan_terrain()
         changed_edges = {}
         path = [self.start.pos]
+        steps = 0
+        total_error = 0.0
+        step_backs = 0
+
         last = self.start
         self.initialize_planning()
         self.compute_shortest_path()
 
-        steps = 0
-        total_error = 0.0
         while self.start != self.goal:
             if self.start.rhs == math.inf:
-                path = []
-                break
+                self.path = path
+                return
 
             min_succ_cost = math.inf
             min_succ = None
@@ -137,12 +146,12 @@ class DStarLite:
 
             new_changed_edges, new_error = self.scan_terrain()
             changed_edges.update(new_changed_edges)
-
             total_error += new_error
+
+            # print(f'Step: {steps}, Loc: {self.start.pos}, Scan Error: {new_error}, Total error: {total_error}')
             enough_err = total_error > self.err_thr
             update_time = self.update_step > 0 and steps % self.update_step == 0
-            if enough_err or update_time:
-                total_error = 0.0
+            if (enough_err or update_time) and len(changed_edges) > 0:
                 self.km += heuristic(last, self.start)
                 last = self.start
                 for edge, c_old in changed_edges.items():
@@ -171,8 +180,13 @@ class DStarLite:
                                 v.rhs = min_rhs_cost
                     self.update_vertex(u)
                     self.update_vertex(v)
-
+                total_error = 0.0
+                changed_edges = {}
                 self.compute_shortest_path()
+            if len(path) > 3 and path[-1] == path[-3]:
+                step_backs += 1
+            if step_backs >= 1000:
+                break
             steps += 1
         self.path = path
         return
